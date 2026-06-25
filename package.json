@@ -78,7 +78,7 @@
     "mime-db": "^1.54.0",
     "mime-types": "^3.0.2",
     "minimatch": "^10.2.5",
-    "mongodb": "^7.2.0",
+    "mongodb": "^7.3.0",
     "mongodb-connection-string-url": "^7.0.1",
     "mongoose": "^9.7.2",
     "mpath": "^0.9.0",
