@@ -1,31 +1,65 @@
-require("dotenv").config();
+async function testBackend() {
+    try {
+        const response = await fetch(
+            "https://milmich-fx-academy.onrender.com/test"
+        );
 
-const express = require("express");
-const cors = require("cors");
+        if (!response.ok) {
+            throw new Error("Server returned " + response.status);
+        }
 
-const connectDB = require("./config/db");
-const authRoutes = require("./routes/authRoutes");
+        const data = await response.json();
 
-const app = express();
+        document.getElementById("result").innerHTML = data.message;
 
-// Connect to MongoDB
-connectDB();
+    } catch (error) {
+        console.error(error);
 
-app.use(cors({
-  origin: "https://milmich-fx-academy.vercel.app"
-}));
+        document.getElementById("result").innerHTML = "Connection Failed";
+    }
+}
 
-app.use(express.json());
+// Add this BELOW the testBackend function
 
-// Auth routes
-app.use("/api/auth", authRoutes);
+async function handleSubmit(event) {
+    event.preventDefault();
 
-app.get("/", (req, res) => {
-  res.send("Backend Working");
-});
+    const fullName = document.getElementById("fullName").value;
+    const phoneNumber = document.getElementById("phoneNumber").value;
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const isWhatsapp = document.getElementById("isWhatsapp").checked;
 
-const PORT = process.env.PORT || 5000;
+    try {
+        const response = await fetch(
+            "https://milmich-fx-academy.onrender.com/register",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    fullName,
+                    phoneNumber,
+                    email,
+                    password,
+                    isWhatsapp
+                })
+            }
+        );
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+        const data = await response.json();
+
+        document.getElementById("message").innerHTML = data.message;
+
+        if (response.ok) {
+            setTimeout(() => {
+                window.location.href = "./sign in.html";
+            }, 1500);
+        }
+
+    } catch (error) {
+        console.error(error);
+        document.getElementById("message").innerHTML = "Registration Failed";
+    }
+}

@@ -1,176 +1,85 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const sgMail = require("../config/sendgrid");
+const crypto = require("crypto");
 const generateToken = require("../utils/generateToken");
 
+// Register User
 const register = async (req, res) => {
-    try {
-       const {
-            fullname,
-            email,
-            phone,
-            password
-            } = req.body;
-              const existingUser =
-            await User.findOne({ email });
-            if (existingUser) {
-                return res.status(400).json({
-                    message: "User already exists"
-                    });
-                    }
-                    const salt =
-                    await bcrypt.genSalt(10);
-                    const hashedPassword =
-                    await bcrypt.hash(
-                        password,
-                        salt
-                        );
-const verificationToken =
-jwt.sign(
-    { email },
-    process.env.JWT_SECRET,
-    { expiresIn: "1d" }
-    );
-    const user =
-    await User.create({
-        fullname,
-        email,
-        phone,
-        password: hashedPassword,
-        emailVerified: false
-        });                        
-        const verifyUrl =
-        `${process.env.CLIENT_URL}/verify.html?token=${verificationToken}`;
-        await sgMail.send({
-            to: email,
-            from: "noreply@yourdomain.com",
-            subject:
-            "Verify Your Account",
-            html: `
-            <h2>Welcome ${fullname}</h2>
-            <p>
-            Click below to verify
-            your email.
-            </p>
-            <a href="${verifyUrl}">
-            Verify Account
-            </a>
-            });
-            res.status(201).json({
-            message:
-            "Registration successful. Check email."
-            });
-            } catch (error) {
-             res.status(500).json({
-             message: error.message
-             });
+  try {
+    const { fullname, email, phone, password } = req.body;
 
-             }
-             };
-             const verifyEmail =
-             async (req, res) => {
-                try {
-                const { token } =
-                req.query;
-                const decoded =
-                jwt.verify(
-                token,
-                process.env.JWT_SECRET
-                );
-                const user =
-                await User.findOne({
-                email:
-                decoded.email
-                });
-                if (!user) {
-                return res.status(404)
-                .json({
-                message:
-                "User not found"
-                });
-                }
-                user.emailVerified =
-                true;
-                await user.save();
-                res.json({
-                message:
-                "Email verified"
-                });
-                } catch {
-                 res.status(400).json({
-                 message:
-                 "Invalid token"
-                 });
-                 }
-                 };
-                 const login =
-                 async (req, res) => {
-                    try {
-                    const {
-                    email,
-                    password
-                    } = req.body;
-                     const user =
-                     await User.findOne({
-                     email
-                     });
-                     if (!user) {
-                     return res.status(404)
-                     .json({
-                     message:
-                     "User not found"
-                     });
-                     }
-                     const match =
-                     await bcrypt.compare(
-                     password,
-                     user.password
-                     );
-                     if (!match) {
-                     return res.status(401)
-                     .json({
-                     message:
-                     "Invalid credentials"
-                     });
-                     }
-                     if (
-                     !user.emailVerified
-                     ) {
-                     return res.status(401)
-                     .json({
-                     message:
-                     "Verify email first"
-                     });
-                     }
-                     const token =
-                     generateToken(
-                     user._id
-                     );
+    // Check required fields
+    if (!fullname || !email || !phone || !password) {
+      return res.status(400).json({
+        message: "Please fill in all fields"
+      });
+    }
 
-                     res.json({
-                     token,
-                     user: {
-                     id: user._id,
-                     fullname: 
-                     user.fullname, 
-                     email:
-                      user.email
-                      }
-                      });
+    // Check duplicate email
+    const existingEmail = await User.findOne({ email });
 
-                      } catch (error) {
+    if (existingEmail) {
+      return res.status(400).json({
+        message: "Email already exists"
+      });
+    }
 
-                      res.status(500).json({
-                      message:
-                       error.message
-                       });
-                       }
-                       };
+    // Check duplicate phone
+    const existingPhone = await User.findOne({ phone });
 
-                       module.exports = {
-                       register,
-                       verifyEmail,
-                       login
-                       }
-};                 
+    if (existingPhone) {
+      return res.status(400).json({
+        message: "Phone number already exists"
+      });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // OTP expires in 10 minutes
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Create user
+    const user = await User.create({
+      fullname,
+      email,
+      phone,
+      password: hashedPassword,
+      otp,
+      otpExpires,
+      emailVerified: false
+    });
+
+    // TODO:
+    // Send verification email
+    // Send owner notification email
+    // Send SMS OTP
+    // Send WhatsApp OTP
+
+    res.status(201).json({
+      success: true,
+      message: "Registration successful. Verify your account with the OTP sent to your email.",
+      token: generateToken(user._id),
+      user: {
+        id: user._id,
+        fullname: user.fullname,
+        email: user.email,
+        phone: user.phone
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+module.exports = {
+  register
+};
